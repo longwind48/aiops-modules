@@ -386,3 +386,6 @@ archive/
 
 # Integration Testing Files
 **/*snapshot/*
+
+# Local environment files
+manifests/**/.env
