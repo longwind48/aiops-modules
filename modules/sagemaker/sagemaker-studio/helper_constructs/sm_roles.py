@@ -296,6 +296,33 @@ class SMRoles(Construct):
         cdk_deploy_policy.attach_to_role(self.lead_data_scientist_role)
         mlflow_policy.attach_to_role(self.lead_data_scientist_role)
 
+        # role for ML Engineer persona - very permissive
+        self.ml_engineer_role = iam.Role(
+            self,
+            "ml-engineer-role",
+            path=role_path,
+            assumed_by=iam.CompositePrincipal(
+                iam.ServicePrincipal("lambda.amazonaws.com"),
+                iam.ServicePrincipal("sagemaker.amazonaws.com"),
+                iam.ServicePrincipal("bedrock.amazonaws.com"),
+            ),
+            permissions_boundary=permissions_boundary,
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMReadOnlyAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AWSLambda_FullAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AWSCodeCommitPowerUser"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonEC2ContainerRegistryFullAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockFullAccess"),
+            ],
+        )
+
+        services_policy.attach_to_role(self.ml_engineer_role)
+        kms_policy.attach_to_role(self.ml_engineer_role)
+        cdk_deploy_policy.attach_to_role(self.ml_engineer_role)
+        mlflow_policy.attach_to_role(self.ml_engineer_role)
+
         # default role for sagemaker persona
         self.sagemaker_studio_role = iam.Role(
             self,

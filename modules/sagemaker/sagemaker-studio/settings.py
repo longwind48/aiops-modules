@@ -48,6 +48,11 @@ class SeedFarmerParameters(CdkBaseSettings):
 
     data_science_users: List[str] = Field(default=[])
     lead_data_science_users: List[str] = Field(default=[])
+    ml_engineer_users: List[str] = Field(default=[])
+    ml_engineer_instance_type: str = Field(default="ml.m5.2xlarge")
+    ml_engineer_image_name: str = Field(default="sagemaker-distribution-cpu")
+    ml_engineer_image_version: Optional[str] = Field(default=None)
+    ml_engineer_storage_gb: int = Field(default=20)
 
     idle_timeout_in_minutes: Optional[int] = Field(default=None)
     max_idle_timeout_in_minutes: Optional[int] = Field(default=None)
