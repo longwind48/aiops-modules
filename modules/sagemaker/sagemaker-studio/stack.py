@@ -28,6 +28,11 @@ class SagemakerStudioStack(Stack):
         studio_bucket_name: Optional[str],
         data_science_users: List[str],
         lead_data_science_users: List[str],
+        ml_engineer_users: List[str],
+        ml_engineer_instance_type: str,
+        ml_engineer_image_name: str,
+        ml_engineer_image_version: Optional[str],
+        ml_engineer_storage_gb: int,
         app_image_config_name: Optional[str],
         image_name: Optional[str],
         enable_custom_sagemaker_projects: bool,
@@ -93,6 +98,7 @@ class SagemakerStudioStack(Stack):
                     self.sm_roles.sagemaker_studio_role.role_arn,
                     self.sm_roles.data_scientist_role.role_arn,
                     self.sm_roles.lead_data_scientist_role.role_arn,
+                    self.sm_roles.ml_engineer_role.role_arn,
                 ],
                 vpc=self.vpc,
                 subnets=self.subnets,
@@ -106,6 +112,7 @@ class SagemakerStudioStack(Stack):
                     self.sm_roles.sagemaker_studio_role,
                     self.sm_roles.data_scientist_role,
                     self.sm_roles.lead_data_scientist_role,
+                    self.sm_roles.ml_engineer_role,
                 ],
             )
 
@@ -133,6 +140,20 @@ class SagemakerStudioStack(Stack):
                 jupyterlab_app_instance_type=jupyterlab_app_instance_type,
             )
             for user in lead_data_science_users
+        ]
+
+        [
+            self.create_ml_engineer_profile_and_space(
+                id=f"mle-{user}",
+                user=user,
+                auth_mode=auth_mode,
+                role_arn=self.sm_roles.ml_engineer_role.role_arn,
+                instance_type=ml_engineer_instance_type,
+                image_name=ml_engineer_image_name,
+                image_version=ml_engineer_image_version,
+                storage_gb=ml_engineer_storage_gb,
+            )
+            for user in ml_engineer_users
         ]
 
         self.mlflow_server = None
@@ -526,4 +547,70 @@ class SagemakerStudioStack(Stack):
                 ),
             )
             user_space.add_dependency(user_profile)
+        return user_profile
+
+    def create_ml_engineer_profile_and_space(
+        self,
+        id: str,
+        user: str,
+        auth_mode: str,
+        role_arn: str,
+        instance_type: str,
+        image_name: str,
+        image_version: Optional[str],
+        storage_gb: int,
+    ) -> sagemaker.CfnUserProfile:
+        """Create ML Engineer user profile with Code Editor space."""
+        user_profile = sagemaker.CfnUserProfile(
+            self,
+            id,
+            domain_id=self.studio_domain.attr_domain_id,
+            user_profile_name=user,
+            user_settings=sagemaker.CfnUserProfile.UserSettingsProperty(
+                execution_role=role_arn,
+            ),
+            single_sign_on_user_identifier="UserName" if auth_mode == "SSO" else None,
+            single_sign_on_user_value=user if auth_mode == "SSO" else None,
+        )
+
+        # Build image ARN - use version if provided, otherwise just the image name
+        if image_version:
+            sagemaker_image_version_arn = (
+                f"arn:{core.Aws.PARTITION}:sagemaker:{core.Aws.REGION}:081325390199:image-version/{image_name}/{image_version}"
+            )
+            resource_spec = sagemaker.CfnSpace.ResourceSpecProperty(
+                instance_type=instance_type,
+                sage_maker_image_version_arn=sagemaker_image_version_arn,
+            )
+        else:
+            sagemaker_image_arn = f"arn:{core.Aws.PARTITION}:sagemaker:{core.Aws.REGION}:081325390199:image/{image_name}"
+            resource_spec = sagemaker.CfnSpace.ResourceSpecProperty(
+                instance_type=instance_type,
+                sage_maker_image_arn=sagemaker_image_arn,
+            )
+
+        # Code Editor space
+        user_space = sagemaker.CfnSpace(
+            self,
+            f"space-{user}",
+            domain_id=self.studio_domain.attr_domain_id,
+            space_name=f"{user}-CodeEditor-space",
+            space_display_name=f"{user}-CodeEditor-space",
+            space_settings=sagemaker.CfnSpace.SpaceSettingsProperty(
+                app_type="CodeEditor",
+                code_editor_app_settings=sagemaker.CfnSpace.SpaceCodeEditorAppSettingsProperty(
+                    default_resource_spec=resource_spec,
+                ),
+                space_storage_settings=sagemaker.CfnSpace.SpaceStorageSettingsProperty(
+                    ebs_storage_settings=sagemaker.CfnSpace.EbsStorageSettingsProperty(
+                        ebs_volume_size_in_gb=storage_gb,
+                    )
+                ),
+            ),
+            ownership_settings=sagemaker.CfnSpace.OwnershipSettingsProperty(owner_user_profile_name=user),
+            space_sharing_settings=sagemaker.CfnSpace.SpaceSharingSettingsProperty(
+                sharing_type="Private",
+            ),
+        )
+        user_space.add_dependency(user_profile)
         return user_profile

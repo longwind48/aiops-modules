@@ -1,5 +1,5 @@
 name: studio
-path: git::https://github.com/awslabs/aiops-modules.git//modules/sagemaker/sagemaker-studio?ref=release/3.0.0&depth=1
+path: modules/sagemaker/sagemaker-studio
 targetAccount: primary
 parameters:
   - name: vpc_id
@@ -20,6 +20,16 @@ parameters:
   - name: lead_data_science_users
     value:
       - lead-ds-user-1
+  - name: ml_engineer_users
+    value:
+      - mle-user-1
+  - name: ml_engineer_instance_type
+    value: ml.m5.2xlarge
+  - name: ml_engineer_image_name
+    value: sagemaker-distribution-cpu
+  # ml_engineer_image_version not specified - uses latest image version
+  - name: ml_engineer_storage_gb
+    value: 20
   - name: server_lifecycle_name
     value: studio-auto-shutdown
   - name: studio_bucket_name
